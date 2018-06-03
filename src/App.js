@@ -1,15 +1,15 @@
 import React, { Component } from 'react';
 import './App.css';
-import ChartContainer from './containers/ChartContainer';
+import Main from './containers/index';
 
 class App extends Component {
-    render() {
+    render = () => {
         return (
             <div className="App App-intro">
                 <div className="container">
                     <div className="row">
                         <div className="col-xs-12">
-                            <ChartContainer />
+                            <Main />
                         </div>
                     </div>
                 </div>

@@ -5,7 +5,7 @@ const timeRange = [ "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN" ];
 const quotations = [ "AUDCAD", "EURUSD" ];
 
 export default class ChartBar extends Component {
-    render() {
+    render = () => {
         return (
             <ButtonToolbar>
                 <Button onClick={this.props.refreshData}>Refresh</Button>
@@ -29,7 +29,7 @@ export default class ChartBar extends Component {
                 </SplitButton>
                 <Button 
                     bsStyle={this.props.showAverage ? "primary" : "default" }
-                    onClick={this.props.calculateMean}>
+                    onClick={this.props.calculateAverage}>
                     Mean
                 </Button>
             </ButtonToolbar>

@@ -1,101 +1,107 @@
 import React, { Component } from 'react';
-import { Panel } from 'react-bootstrap';
-import ChartBar from './../components/ChartBar';
-import Chart from './../components/Chart';
+import CustomChart from './../components/chartComponent';
 import _ from 'lodash';
-
-import { parseJson, fetchData } from './../utilities/utilities';
-import rawData from './../data.json';
-
-const API_URL = "https://test.api.com/quotations";
 
 export default class ChartContainer extends Component {
     constructor(props) {
         super(props);
         
+        this.entireDomain = this.getEntireDomain(this.props.data, "datetime", "price");
+        this.anotherDomain = this.getEntireDomain(this.props.data, "datetime", "price");
+
         this.state = {
-            selectedQuotation: 'AUDCAD',
-            data: [],
-            showAverage: false,
-            average: 0,
-            selectedTimeRange: 'M5'
+            zoomedX: this.entireDomain.x,
+            anotherZoomedX: this.anotherDomain.x,
+            selectedQuotation: 'AUDCAD'
         };
-
-        this.changeQuotation= this.changeQuotation.bind(this);
-        this.refreshData = this.refreshData.bind(this);
-        this.calculateMean = this.calculateMean.bind(this);
-        this.changeTimeRange = this.changeTimeRange.bind(this);
     };
 
-    componentDidMount() {
-        fetchData(`${API_URL}/${this.state.selectedQuotation}`, "GET")
-            .then((data) => {
-                this.setState({ data });
-            });
+    getEntireDomain = (data, xKey, yKey) => {
+        console.log(data);
+        return {
+            y: [_.minBy(data, d => d[yKey])[yKey], _.maxBy(data, d => d[yKey])[yKey]],
+            x: [ data[0][xKey], _.last(data)[xKey] ]
+        };
     };
 
-    changeQuotation(quotation) {
-        this.setState({
-            selectedQuotation: quotation
-        });
+    getData = (data, xDomain, maxPoints) => {
+        let startIndex = data.findIndex((d) => d.datetime >= xDomain[0]);
+        let endIndex = data.findIndex((d) => d.datetime > xDomain[1]);
 
-        fetchData(`${API_URL}/${quotation}/${this.state.selectedTimeRange}`, "GET")
-            .then((data) => {
-                this.setState({ data });
-            });
+        startIndex = startIndex > 0 ? startIndex - 1 : startIndex;
+        endIndex = (endIndex !== - 1 && endIndex < data.length - 1) ? endIndex + 1 : endIndex;
+        
+        const filtered = data.slice(startIndex, endIndex);
+
+        if (filtered.length > maxPoints) {
+            // limit k to powers of 2, e.g. 64, 128, 256
+            // so that the same points will be chosen reliably, reducing flicker
+            const k = Math.pow(2, Math.ceil(Math.log2(filtered.length / maxPoints)));
+
+            
+            return filtered.filter(
+                // ensure modulo is always calculated from same reference: i + startIndex
+                (d, i) => (((i + startIndex) % k) === 0)
+            );
+        }
+
+        return filtered;
     };
 
-    changeTimeRange(timeRange) {
-        this.setState({
-            selectedTimeRange: timeRange
-        });
+    render = () => {
+        let renderedData = this.getData(
+            this.props.data,
+            this.state.zoomedX,
+            50
+        );
 
-        fetchData(`${API_URL}/${this.state.selectedQuotation}/${timeRange}`, "GET")
-            .then((data) => {
-                this.setState({ data });
-            });
-    };
+        let anotherRenderedData = this.getData(
+            this.props.data,
+            this.state.anotherZoomedX,
+            50
+        );
 
-    refreshData() {
-        fetchData(`${API_URL}/${this.state.selectedQuotation}`, "GET")
-            .then((data) => {
-                this.setState({ data });
-            });
-    };
-
-    calculateMean() {
-        let average = _.meanBy(rawData, (p) => p.price);
-
-        this.setState({
-            showAverage: !this.state.showAverage,
-            average
-        });
-
-        console.log(this.state.showAverage);
-    };
-
-    render() {
         return (
-            <Panel className="App-panel">
-                <Panel.Heading>
-                    <ChartBar
-                        selectedQuotation={this.state.selectedQuotation}
-                        selectedTimeRange={this.state.selectedTimeRange}
-                        refreshData={this.refreshData}
-                        calculateMean={this.calculateMean}
-                        changeQuotation={this.changeQuotation}
-                        changeTimeRange={this.changeTimeRange}
-                        showAverage={this.state.showAverage} />
-                </Panel.Heading>
-                <Panel.Body>
-                    <Chart
-                        width={800}
-                        height={480}
-                        data={parseJson(rawData)}
-                        showAverage={this.state.showAverage}
-                        average={this.state.average} />
-                </Panel.Body>
-            </Panel>
+            <div>
+                <CustomChart
+                    width={800}
+                    height={350}
+                    entireDomain={this.entireDomain}
+                    onZoomDomainChange={(domain) => { this.setState({ zoomedX: domain.x }) }}
+                    data={renderedData}
+                    showDots={true}
+                    xDataKey="datetime"
+                    yDataKey="price"
+                    style={{
+                        data: {
+                            stroke: "#009933",
+                            strokeWidth: 1.5,
+                            strokeLinecap: "round" }
+                        }}
+                    predictionPoint={
+                        [ renderedData[renderedData.length - 1], {
+                            "datetime": new Date("2018-04-15 00:00:00"),
+                            "price": 0.98278
+                        } ]} />
+                <CustomChart
+                    width={800}
+                    height={200}
+                    entireDomain={this.anotherDomain}
+                    onZoomDomainChange={(domain) => { this.setState({ anotherZoomedX: domain.x }) }}
+                    data={anotherRenderedData}
+                    showAverage={this.props.showAverage}
+                    averageScatterSize={2}
+                    average={this.props.average}
+                    showDots={true}
+                    xDataKey="datetime"
+                    yDataKey="price"
+                    style={{
+                        data: {
+                            stroke: "red",
+                            strokeWidth: 1.5,
+                            strokeLinecap: "round" }
+                        }} />
+            </div>
         );
     };
 }
